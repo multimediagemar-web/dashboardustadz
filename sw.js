@@ -1,7 +1,5 @@
 const CACHE_NAME = 'crm-ashqaf-v1';
-
-// Daftar file yang WAJIB disimpan di memori HP agar diakui sebagai Aplikasi
-const ASSETS_TO_CACHE = [
+const urlsToCache = [
   './',
   './index.html',
   './manifest.json',
@@ -9,40 +7,43 @@ const ASSETS_TO_CACHE = [
   './icon-512x512.png'
 ];
 
-// 1. Proses Install: Menyimpan file-file di atas ke dalam Cache HP
-self.addEventListener('install', (event) => {
+// Proses Install: Menyimpan file-file penting ke memori HP (Cache)
+self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Menyimpan cache aplikasi');
-      return cache.addAll(ASSETS_TO_CACHE);
-    })
+    caches.open(CACHE_NAME)
+      .then(cache => {
+        console.log('Membuka cache PWA');
+        return cache.addAll(urlsToCache);
+      })
   );
-  self.skipWaiting();
 });
 
-// 2. Proses Aktivasi: Membersihkan cache versi lama jika ada pembaruan
-self.addEventListener('activate', (event) => {
+// Proses Fetch: Membantu aplikasi memuat lebih cepat dari cache
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => {
+        // Jika ada di cache, gunakan cache. Jika tidak, ambil dari internet.
+        if (response) {
+          return response;
+        }
+        return fetch(event.request);
+      })
+  );
+});
+
+// Proses Activate: Menghapus cache versi lama jika ada pembaruan
+self.addEventListener('activate', event => {
+  const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
+    caches.keys().then(cacheNames => {
       return Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME) {
-            console.log('[Service Worker] Menghapus cache lama');
-            return caches.delete(cache);
+        cacheNames.map(cacheName => {
+          if (cacheWhitelist.indexOf(cacheName) === -1) {
+            return caches.delete(cacheName);
           }
         })
       );
-    })
-  );
-  self.clients.claim();
-});
-
-// 3. Proses Fetch: Menampilkan aplikasi dari Cache jika offline, atau ambil dari Internet jika online
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request).then((response) => {
-      // Jika file ada di cache, gunakan itu. Jika tidak, ambil dari internet.
-      return response || fetch(event.request);
     })
   );
 });
